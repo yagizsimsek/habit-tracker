@@ -12,13 +12,13 @@ import calendar
 st.set_page_config(page_title="Yağız's Habit Tracker", page_icon="🌿", layout="centered")
 TR_TIMEZONE = pytz.timezone('Europe/Istanbul')
 
-# Premium Pastel Color Scale (Dark Mode compatible)
+# GERÇEK YUMUŞAK PASTEL SKALASI (Göz yormayan, kremamsı yeşiller)
 PASTEL_COLORS = [
-    [0.0, '#22272e'],    # No Data / Future: Premium Dark Navy/Grey
+    [0.0, '#22272e'],    # No Data: Koyu Gri/Lacivert (Arka planla bütünleşik)
     [0.49, '#22272e'],   
-    [0.5, '#c8e6c9'],    # Low score: Very soft pastel green
-    [0.75, '#66bb6a'],   # Mid score: Sweet nature green
-    [1.0, '#2e7d32']     # Max score: Rich forest green
+    [0.5, '#e8f5e9'],    # Düşük skor: Çok uçuk krem/pastel yeşil
+    [0.75, '#a5d6a7'],   # Orta skor: Yumuşak nane yeşili
+    [1.0, '#4caf50']     # Tam skor: Tatlı, göz almayan fıstık yeşili
 ]
 
 @st.cache_resource
@@ -106,7 +106,7 @@ if st.button("🚀 Save Daily Progress", use_container_width=True):
     st.success("Data successfully saved to Google Sheets!")
     st.rerun()
 
-# --- UI: PREMIUM ARCHIVE HEATMAPS ---
+# --- UI: PREMIUM SQUARE ARCHIVE HEATMAPS ---
 st.divider()
 st.subheader("Consistency Archive")
 
@@ -157,21 +157,25 @@ if not df_logs.empty:
         
         fig = go.Figure(data=go.Heatmap(
             z=pivot.values, text=hover_pivot.values, hoverinfo="text",
-            xgap=5, ygap=5, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
+            xgap=4, ygap=4, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
         ))
         
         fig.update_layout(
-            height=280,  # Keeps the boxes perfectly square
+            width=350,   # GENİŞLİĞİ KİLİTLEDİK (Sündürmeyi engeller)
+            height=200,  # YÜKSEKLİĞİ KİLİTLEDİK
             margin=dict(t=5, l=35, r=5, b=5),
             yaxis=dict(
+                scaleanchor="x", # BİREBİR KARE OLMA KİLİDİ (Altın Vuruş)
+                scaleratio=1,
                 tickmode='array', tickvals=list(range(7)), 
                 ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 
                 autorange='reversed',
                 tickfont=dict(color='#8b949e', size=11)
             ),
-            xaxis=dict(showticklabels=False), 
+            xaxis=dict(showticklabels=False, constrain="domain"), 
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'
         )
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        # use_container_width=False yaptık ki ekran genişleyince grafik sünmesin, kompakt GitHub stili kalsın.
+        st.plotly_chart(fig, use_container_width=False, config={'displayModeBar': False})
 else:
     st.info("Log your first habit to see the pastel green heatmap come to life!")
