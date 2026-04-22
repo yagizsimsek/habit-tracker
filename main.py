@@ -12,13 +12,13 @@ import calendar
 st.set_page_config(page_title="Yağız's Habit Tracker", page_icon="🌿", layout="centered")
 TR_TIMEZONE = pytz.timezone('Europe/Istanbul')
 
-# Yumuşak Pastel Yeşil Renk Skalası
+# Premium Pastel Color Scale (Dark Mode compatible)
 PASTEL_COLORS = [
-    [0.0, '#383e4a'],    # -1.0 (Boş/Gelecek): Yumuşak Gri
-    [0.49, '#383e4a'],   # 0 sınırına kadar Gri
-    [0.5, '#e8f5e9'],    # 0.0 (Veri var ama 0 puan): Çok uçuk pastel yeşil
-    [0.75, '#81c784'],   # 0.5 (Orta başarı): Tatlı pastel yeşil
-    [1.0, '#4caf50']     # 1.0 (Tam başarı): Tok ve yumuşak yeşil
+    [0.0, '#22272e'],    # No Data / Future: Premium Dark Navy/Grey
+    [0.49, '#22272e'],   
+    [0.5, '#c8e6c9'],    # Low score: Very soft pastel green
+    [0.75, '#66bb6a'],   # Mid score: Sweet nature green
+    [1.0, '#2e7d32']     # Max score: Rich forest green
 ]
 
 @st.cache_resource
@@ -31,7 +31,7 @@ def connect_to_gsheets():
         db = client.open("HabitTrackerDB")
         return db.worksheet("Logs"), db.worksheet("Settings")
     except Exception as e:
-        st.error("Veritabanı bağlantı hatası. 'Logs' ve 'Settings' sayfalarının olduğundan emin ol.")
+        st.error("Database connection failed. Ensure 'Logs' and 'Settings' sheets exist.")
         st.stop()
 
 log_sheet, settings_sheet = connect_to_gsheets()
@@ -39,7 +39,7 @@ log_sheet, settings_sheet = connect_to_gsheets()
 # --- HEADER ---
 st.title("🌿 Yağız's Habit Tracker")
 today_tr = datetime.now(TR_TIMEZONE)
-st.info(f"Bugün: {today_tr.strftime('%d %B %Y')}")
+st.info(f"Today: {today_tr.strftime('%d %B %Y')}")
 
 # --- DATA LOADING ---
 log_records = log_sheet.get_all_records()
@@ -49,24 +49,24 @@ setting_records = settings_sheet.get_all_records()
 df_settings = pd.DataFrame(setting_records) if setting_records else pd.DataFrame(columns=["Habit_Name", "Weight"])
 
 # --- UI: MANAGE HABITS & WEIGHTS ---
-with st.expander("⚙️ Alışkanlıkları ve Ağırlıkları Yönet"):
-    st.markdown("Her alışkanlık için 1-100 arası önem (ağırlık) derecesi belirle.")
+with st.expander("⚙️ Manage Habits & Weights"):
+    st.markdown("Set importance (1-100) for each habit.")
     
     for i, row in df_settings.iterrows():
         cols = st.columns([3, 2, 1])
         cols[0].write(row['Habit_Name'])
-        new_w = cols[1].slider("Ağırlık:", 1, 100, int(row['Weight']), key=f"w_{row['Habit_Name']}")
+        new_w = cols[1].slider("Weight:", 1, 100, int(row['Weight']), key=f"w_{row['Habit_Name']}")
         if new_w != row['Weight']:
             df_settings.at[i, 'Weight'] = new_w
-            if st.button("Güncelle", key=f"upd_{row['Habit_Name']}"):
+            if st.button("Update", key=f"upd_{row['Habit_Name']}"):
                 settings_sheet.clear()
                 settings_sheet.update(values=[df_settings.columns.values.tolist()] + df_settings.values.tolist())
                 st.rerun()
 
     st.divider()
-    new_h = st.text_input("Yeni Alışkanlık Adı:")
-    new_w_val = st.slider("Önem Derecesi (Ağırlık):", 1, 100, 50)
-    if st.button("Yeni Alışkanlık Ekle"):
+    new_h = st.text_input("New Habit Name:")
+    new_w_val = st.slider("Importance (Weight):", 1, 100, 50)
+    if st.button("Add New Habit"):
         if new_h and new_h not in df_settings['Habit_Name'].values:
             new_row = pd.DataFrame([{"Habit_Name": new_h, "Weight": new_w_val}])
             df_settings = pd.concat([df_settings, new_row], ignore_index=True)
@@ -75,7 +75,7 @@ with st.expander("⚙️ Alışkanlıkları ve Ağırlıkları Yönet"):
             st.rerun()
 
 # --- UI: DAILY LOGGING ---
-st.subheader("Bugünün Görevleri")
+st.subheader("Today's Tasks")
 today_str = today_tr.strftime("%Y-%m-%d")
 current_logs = []
 weighted_score_num = 0
@@ -90,25 +90,25 @@ for _, row in df_settings.iterrows():
         if not match.empty:
             is_done = str(match['Status'].values[0]).upper() == 'TRUE'
     
-    check = st.checkbox(f"{habit} (Ağırlık: {weight})", value=is_done, key=f"day_{habit}")
+    check = st.checkbox(f"{habit} (Weight: {weight})", value=is_done, key=f"day_{habit}")
     if check: weighted_score_num += weight
     current_logs.append({"Date": today_str, "Habit_Name": habit, "Status": "TRUE" if check else "FALSE"})
 
 daily_ratio = weighted_score_num / total_weight if total_weight > 0 else 0
-st.progress(daily_ratio, text=f"Günün Ağırlıklı Başarısı: %{int(daily_ratio * 100)}")
+st.progress(daily_ratio, text=f"Daily Weighted Score: {int(daily_ratio * 100)}%")
 
-if st.button("🚀 Günü Kaydet", use_container_width=True):
+if st.button("🚀 Save Daily Progress", use_container_width=True):
     if not df_logs.empty:
         df_logs = df_logs[df_logs['Date'] != today_str]
     final_logs = pd.concat([df_logs, pd.DataFrame(current_logs)], ignore_index=True)
     log_sheet.clear()
     log_sheet.update(values=[final_logs.columns.values.tolist()] + final_logs.values.tolist())
-    st.success("Veriler başarıyla Google Sheets'e kaydedildi!")
+    st.success("Data successfully saved to Google Sheets!")
     st.rerun()
 
-# --- UI: PASTEL ARCHIVE HEATMAPS ---
+# --- UI: PREMIUM ARCHIVE HEATMAPS ---
 st.divider()
-st.subheader("Disiplin Arşivi")
+st.subheader("Consistency Archive")
 
 if not df_logs.empty:
     df_calc = pd.merge(df_logs, df_settings, on='Habit_Name', how='left')
@@ -122,7 +122,6 @@ if not df_logs.empty:
     
     daily_stats['Date'] = pd.to_datetime(daily_stats['Date']).dt.date
     
-    # FIX: Takvimin gizlenmesini önleyen sağlamlaştırılmış tarih hesaplaması
     all_dates = pd.concat([pd.Series(daily_stats['Date']), pd.Series([today_tr.date()])])
     all_dates = pd.to_datetime(all_dates)
     all_months = all_dates.dt.to_period('M').unique().tolist()
@@ -130,6 +129,7 @@ if not df_logs.empty:
 
     for period in all_months:
         year, month = period.year, period.month
+        
         st.markdown(f"#### {calendar.month_name[month]} {year}")
         num_days = calendar.monthrange(year, month)[1]
         
@@ -147,8 +147,8 @@ if not df_logs.empty:
         def make_hover(row):
             d_str = row['Date'].strftime('%d %b %Y')
             if row['Score'] == -1.0:
-                return f"{d_str}<br>Veri Yok"
-            return f"{d_str}<br>Başarı: %{int(row['Score']*100)}"
+                return f"{d_str}<br>No Data"
+            return f"{d_str}<br>Score: {int(row['Score']*100)}%"
             
         m_merged['Hover'] = m_merged.apply(make_hover, axis=1)
         
@@ -157,15 +157,21 @@ if not df_logs.empty:
         
         fig = go.Figure(data=go.Heatmap(
             z=pivot.values, text=hover_pivot.values, hoverinfo="text",
-            xgap=6, ygap=6, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
+            xgap=5, ygap=5, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
         ))
         
         fig.update_layout(
-            height=200, margin=dict(t=10, l=40, r=10, b=10),
-            yaxis=dict(tickmode='array', tickvals=list(range(7)), 
-                       ticktext=['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'], autorange='reversed'),
-            xaxis=dict(showticklabels=False), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'
+            height=280,  # Keeps the boxes perfectly square
+            margin=dict(t=5, l=35, r=5, b=5),
+            yaxis=dict(
+                tickmode='array', tickvals=list(range(7)), 
+                ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 
+                autorange='reversed',
+                tickfont=dict(color='#8b949e', size=11)
+            ),
+            xaxis=dict(showticklabels=False), 
+            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 else:
-    st.info("İlk verini kaydettiğinde pastel yeşil takvimin canlanacak!")
+    st.info("Log your first habit to see the pastel green heatmap come to life!")
