@@ -14,7 +14,7 @@ TR_TIMEZONE = pytz.timezone('Europe/Istanbul')
 
 # Premium Pastel Color Scale
 PASTEL_COLORS = [
-    [0.0, '#1c2128'],    # No Data: Koyu Gri/Lacivert (Attığın görseldeki arka planla birebir)
+    [0.0, '#1c2128'],    # No Data: Koyu Gri/Lacivert
     [0.49, '#1c2128'],   
     [0.5, '#c8e6c9'],    # Düşük skor: Çok uçuk krem/pastel yeşil
     [0.75, '#66bb6a'],   # Orta skor: Yumuşak nane yeşili
@@ -157,25 +157,30 @@ if not df_logs.empty:
         
         fig = go.Figure(data=go.Heatmap(
             z=pivot.values, text=hover_pivot.values, hoverinfo="text",
-            xgap=6, ygap=6, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
+            xgap=4, ygap=4, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
         ))
         
         fig.update_layout(
-            height=260, # Yüksekliği ideal boyuta çektim, cılız kalmayacak.
+            height=200, # Gereksiz uzunluğu kıstık, tam kıvamında
             margin=dict(t=5, l=35, r=5, b=5),
             yaxis=dict(
-                scaleanchor="x", # İŞTE SİHİR BURADA: X ve Y eksenini kilitliyor, ASLA sünmüyor.
+                scaleanchor="x", 
                 scaleratio=1,
+                showgrid=False,   # Çizgileri sildik
+                zeroline=False,   # Sıfır çizgisini sildik
                 tickmode='array', tickvals=list(range(7)), 
                 ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 
                 autorange='reversed',
                 tickfont=dict(color='#8b949e', size=11)
             ),
-            xaxis=dict(showticklabels=False), 
+            xaxis=dict(
+                showgrid=False,   # Çizgileri sildik
+                zeroline=False,   # Sıfır çizgisini sildik
+                showticklabels=False
+            ), 
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'
         )
-        # Genişlik kilidini kaldırdım, use_container_width=True yaptım. 
-        # scaleanchor sayesinde kutular büyür ama SÜNMEZ.
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        # Sündürmeyi tamamen kapattık, kutular ne kadarsa o kadar yer kaplayacak
+        st.plotly_chart(fig, use_container_width=False, config={'displayModeBar': False})
 else:
     st.info("Log your first habit to see the pastel green heatmap come to life!")
