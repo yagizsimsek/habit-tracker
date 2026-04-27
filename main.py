@@ -14,7 +14,7 @@ TR_TIMEZONE = pytz.timezone('Europe/Istanbul')
 
 # Premium Pastel Color Scale
 PASTEL_COLORS = [
-    [0.0, '#1c2128'],    # No Data: Koyu Gri/Lacivert
+    [0.0, '#1c2128'],    # No Data: Koyu Gri/Lacivert (Arka planla tam uyumlu)
     [0.49, '#1c2128'],   
     [0.5, '#c8e6c9'],    # Düşük skor: Çok uçuk krem/pastel yeşil
     [0.75, '#66bb6a'],   # Orta skor: Yumuşak nane yeşili
@@ -106,7 +106,7 @@ if st.button("🚀 Save Daily Progress", use_container_width=True):
     st.success("Data successfully saved to Google Sheets!")
     st.rerun()
 
-# --- UI: PERFECT SQUARE ARCHIVE HEATMAPS ---
+# --- UI: WIDE WALL-CALENDAR HEATMAP ---
 st.divider()
 st.subheader("Consistency Archive")
 
@@ -140,9 +140,13 @@ if not df_logs.empty:
         m_merged['Score'] = m_merged['Score'].fillna(-1.0)
         m_merged['DT'] = pd.to_datetime(m_merged['Date'])
         m_merged['Week'] = m_merged['DT'].dt.isocalendar().week
-        
-        if month == 1: m_merged.loc[m_merged['Week'] > 5, 'Week'] = 0
         m_merged['Day_Idx'] = m_merged['DT'].dt.dayofweek
+        
+        # Yıl geçişlerindeki 52. hafta bug'ını önlemek için haftaları sıraya diziyoruz
+        m_merged = m_merged.sort_values('Date')
+        unique_weeks = m_merged['Week'].unique()
+        week_map = {w: i for i, w in enumerate(unique_weeks)}
+        m_merged['Week_Idx'] = m_merged['Week'].map(week_map)
         
         def make_hover(row):
             d_str = row['Date'].strftime('%d %b %Y')
@@ -152,35 +156,32 @@ if not df_logs.empty:
             
         m_merged['Hover'] = m_merged.apply(make_hover, axis=1)
         
-        pivot = m_merged.pivot(index='Day_Idx', columns='Week', values='Score').reindex(range(7))
-        hover_pivot = m_merged.pivot(index='Day_Idx', columns='Week', values='Hover').reindex(range(7))
+        # EKSENLERİ TERS ÇEVİRDİK: Satırlar(Index) Haftalar, Sütunlar(Columns) Günler oldu!
+        pivot = m_merged.pivot(index='Week_Idx', columns='Day_Idx', values='Score').reindex(columns=range(7))
+        hover_pivot = m_merged.pivot(index='Week_Idx', columns='Day_Idx', values='Hover').reindex(columns=range(7))
         
         fig = go.Figure(data=go.Heatmap(
             z=pivot.values, text=hover_pivot.values, hoverinfo="text",
-            xgap=4, ygap=4, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS
+            xgap=8, ygap=8, showscale=False, zmin=-1.0, zmax=1.0, colorscale=PASTEL_COLORS,
+            x=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] # Günleri üste taşıdık
         ))
         
         fig.update_layout(
-            height=200, # Gereksiz uzunluğu kıstık, tam kıvamında
-            margin=dict(t=5, l=35, r=5, b=5),
+            height=380, # Takvimin dikey uzunluğunu arttırdım, kutular devasa kareler olacak
+            margin=dict(t=30, l=5, r=5, b=5), # Boşlukları daralttım ki tam yayılsın
             yaxis=dict(
-                scaleanchor="x", 
-                scaleratio=1,
-                showgrid=False,   # Çizgileri sildik
-                zeroline=False,   # Sıfır çizgisini sildik
-                tickmode='array', tickvals=list(range(7)), 
-                ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 
-                autorange='reversed',
-                tickfont=dict(color='#8b949e', size=11)
+                autorange='reversed', # 1. haftayı en üste al
+                showgrid=False, zeroline=False, showticklabels=False
             ),
             xaxis=dict(
-                showgrid=False,   # Çizgileri sildik
-                zeroline=False,   # Sıfır çizgisini sildik
-                showticklabels=False
+                side='top', # Gün isimleri tablonun üstünde yazsın
+                showgrid=False, zeroline=False,
+                tickfont=dict(color='#8b949e', size=13)
             ), 
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'
         )
-        # Sündürmeyi tamamen kapattık, kutular ne kadarsa o kadar yer kaplayacak
-        st.plotly_chart(fig, use_container_width=False, config={'displayModeBar': False})
+        
+        # use_container_width=True İLE EKRANI YATAYDA TAMAMEN DOLDURUYORUZ
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 else:
     st.info("Log your first habit to see the pastel green heatmap come to life!")
